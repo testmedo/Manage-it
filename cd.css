@@ -5,7 +5,7 @@ body {
     padding: 0;
     background: url('photo/photo_2025-02-18_19-50-28.jpg.jpg') no-repeat center center fixed;
     background-size: cover;
-    color: #ffffff;
+    color: #0123b6;
     direction: rtl;
 }
 /* رأس الصفحة */
@@ -100,7 +100,7 @@ button:hover {
 
 /* مهام */
 .task {
-    border: 1px solid #ddd;
+    border: 1px solid #0c0388;
     padding: 12px;
     margin: 12px 0;
     background-color: #fafafa;
@@ -110,7 +110,7 @@ button:hover {
 }
 
 .task:hover {
-    background-color: #f1f1f1;
+    background-color: #e0d5d5;
     transform: translateY(-2px);
 }
 
@@ -120,7 +120,7 @@ textarea, input[type="text"] {
     padding: 12px;
     margin: 12px 0;
     border-radius: 6px;
-    border: 1px solid #ccc;
+    border: 1px solid #000000;
     font-size: 17px;
     transition: border-color 0.3s;
 }
