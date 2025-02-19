@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>التفاعل الطلابي</title>
+    <link rel="stylesheet" href="cd.css">
+</head>
+<body>
+<header class="header-images">
+    <img src="photo/photo_2025-01-26_08-06-32.jpg" alt="لوجو يمين">
+    <h1> أداره المهام </h1>
+    <img src="photo/photo_2025-02-18_19-50-28.jpg" alt="لوجو يسار">
+</header>
+    
+    <div class="container">
+        <h2>إدارة المهام</h2>
+        <div id="createGroupSection" class="form-section">
+            <label for="groupName">اسم المجموعة:</label>
+            <input type="text" id="groupName" placeholder="أدخل اسم المجموعة" required>
+            <label for="groupPassworda">الرقم السري:</label>
+        <input type="password" id="groupPassworda" placeholder="أدخل الرقم السري" required>
+            <button onclick="createGroup()">حفظ</button>
+        </div>
+        <h3>المجموعات المتاحة</h3>
+        <div id="groupsContainer"></div>
+        <div id="taskFormSection" class="form-section">
+            <div>
+                <label for="taskCreator">اسم المنشئ:</label>
+                <input type="text" id="taskCreator" required>
+            </div>
+            <div>
+                <label for="taskDescription">وصف المهمة:</label>
+                <textarea id="taskDescription" required></textarea>
+            </div>
+            <div>
+                <label for="groupPassworda">الرقم السري للمجموعة:</label>
+                <input type="password" id="groupPassword" placeholder="أدخل الرقم السري" required>
+            </div>
+            <button onclick="createTask()">إرسال المهمة</button>
+            <p id="taskFeedback"></p>
+        </div>
+        <h2>المهام المعروضة</h2>
+        <div id="tasksContainer"></div>
+    </div>
+    <div class="box">
+        <!-- المحتوى هنا -->
+    </div>
+    <!-- الكونتينر الجديد مع الصورة -->
+<div class="container image-container">
+    <img src="photo/task-image.jpg" alt="صورة توضيحية للمهمة">
+</div>
+    <script>
+        let currentGroupId = null;
+
+        window.onload = function() {
+            loadGroups();
+        }
+
+        function showCreateGroupForm() {
+            document.getElementById('createGroupSection').style.display = 'block';
+        }
+
+        // إنشاء مجموعة جديدة
+        function createGroup() {
+    const groupName = document.getElementById('groupName').value.trim();
+    const groupPassword = document.getElementById('groupPassworda').value.trim(); // تم التصحيح
+
+    if (!groupName || !groupPassword) {
+        alert('يرجى إدخال اسم المجموعة والرقم السري');
+        return;
+    }
+
+    fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${groupName}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fields: {
+                groupName: { stringValue: groupName },
+                password: { stringValue: groupPassword }
+            }
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        createTasksCollection(groupName);
+        addGroupToUI(groupName);
+        document.getElementById('groupName').value = ''; 
+        document.getElementById('groupPassworda').value = ''; // تم التصحيح
+    })
+    .catch(error => console.error('Error:', error));
+}
+        // عرض المجموعات في الواجهة
+function loadGroups() {
+    fetch('https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks')
+        .then(response => response.json())
+        .then(data => {
+            const groupsContainer = document.getElementById('groupsContainer');
+            groupsContainer.innerHTML = '';
+            if (data.documents) {
+                data.documents.forEach(group => {
+                    addGroupToUI(group.fields.groupName.stringValue);
+                });
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// إضافة المجموعة إلى واجهة المستخدم
+function addGroupToUI(groupName) {
+    const groupsContainer = document.getElementById('groupsContainer');
+    const groupButton = document.createElement('button');
+    groupButton.textContent = groupName;
+    groupButton.onclick = () => loadTasks(groupName);
+    groupsContainer.appendChild(groupButton);
+}
+
+        // تحميل المهام الخاصة بمجموعة معينة
+function loadTasks(groupName) {
+    currentGroupId = groupName;
+    document.getElementById('taskFormSection').style.display = 'block';
+    
+    // جلب المستندات الفرعية (المهام) لهذه المجموعة
+    fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${groupName}/tasks`)
+        .then(response => response.json())
+        .then(data => {
+            const tasks = data.documents || [];
+            displayTasks(tasks);
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+        // عرض المهام في واجهة المستخدم
+function displayTasks(tasks) {
+    const tasksContainer = document.getElementById('tasksContainer');
+    tasksContainer.innerHTML = '';
+
+    if (tasks.length === 0) {
+        tasksContainer.innerHTML = 'لا توجد مهام في هذه المجموعة.';
+        return;
+    }
+
+    tasks.forEach(task => {
+        const taskData = task.fields;
+        const timestamp = taskData.timestamp.stringValue;
+        const taskElement = document.createElement('div');
+        taskElement.classList.add('task');
+        taskElement.innerHTML = `
+            <strong>${taskData.creator.stringValue}</strong>: ${taskData.description.stringValue}<br>
+            <small>تم الإنشاء في: ${timestamp}</small>
+            <br>
+            <input type="password" id="deletePass${timestamp}" placeholder="أدخل الرقم السري للحذف">
+            <button onclick="deleteTask('${task.name}', '${timestamp}')">حذف</button>
+        `;
+        tasksContainer.appendChild(taskElement);
+    });
+}
+
+       // إنشاء مهمة جديدة داخل مجموعة معينة بعد التحقق من الرقم السري
+function createTask() {
+    const taskCreator = document.getElementById('taskCreator').value.trim();
+    const taskDescription = document.getElementById('taskDescription').value.trim();
+    const enteredPassword = document.getElementById('groupPassword').value.trim();
+    const timestamp = new Date().toISOString();
+
+    // جلب بيانات المجموعة من Firestore للتحقق من الرقم السري
+    fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (!data.fields || !data.fields.password || data.fields.password.stringValue !== enteredPassword) {
+            alert('الرقم السري غير صحيح.');
+            return;
+        }
+
+        // الرقم السري صحيح، يتم إرسال المهمة
+        return fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fields: {
+                    creator: { stringValue: taskCreator },
+                    description: { stringValue: taskDescription },
+                    timestamp: { stringValue: timestamp }
+                }
+            })
+        });
+    })
+    .then(response => response ? response.json() : null)
+    .then(data => {
+        if (data) {
+            document.getElementById('taskFeedback').textContent = "تم إرسال المهمة بنجاح!";
+            document.getElementById('groupPassword').value = ""; // مسح حقل الرقم السري
+            loadTasks(currentGroupId);  // إعادة تحميل المهام بعد الإضافة
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+// حذف مهمة باستخدام الرقم السري
+function deleteTask(taskPath, timestamp) {
+    const password = document.getElementById(`deletePass${timestamp}`).value;
+
+    if (password === '01001') {
+        fetch(`https://firestore.googleapis.com/v1/${taskPath}`, {
+            method: 'DELETE'
+        })
+        .then(() => {
+            alert('تم حذف المهمة بنجاح!');
+            loadTasks(currentGroupId);
+        })
+        .catch(error => console.error('Error:', error));
+    } else {
+        alert('الرقم السري غير صحيح!');
+    }
+}
+    </script>
+    <footer>
+        <p>جميع الحقوق محفوظة تيم التدخل السريع &copy; 2025 | تصميم وتطوير: محمد السيد عبد الفتاح</p>
+    </footer>
+</body>
+</html>
