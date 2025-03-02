@@ -20,36 +20,39 @@
         <input type="text" id="groupName" placeholder="أدخل اسم المجموعة" required>
         <label for="groupPassworda">الرقم السري:</label>
         <input type="password" id="groupPassworda" placeholder="أدخل الرقم السري" required>
+        <label for="groupBlock">اختر البلوك:</label>
+        <select id="groupBlock">
+            <option value="1">البلوك الأول</option>
+            <option value="2">البلوك الثاني</option>
+            <option value="3">البلوك الثالث</option>
+            <option value="4">البلوك الرابع</option>
+        </select>
         <button onclick="createGroup()">حفظ</button>
     </div>
 
     <h3>المجموعات المتاحة</h3>
-    <div id="groupsContainer"></div>
-
-    <div id="taskFormSection" class="form-section">
-        <div>
-            <label for="taskCreator">اسم المنشئ:</label>
-            <input type="text" id="taskCreator" required>
-        </div>
-        <div>
-            <label for="taskDescription">وصف المهمة:</label>
-            <textarea id="taskDescription" required></textarea>
-        </div>
-        <div>
-            <label for="groupPassword">الرقم السري للمجموعة:</label>
-            <input type="password" id="groupPassword" placeholder="أدخل الرقم السري" required>
-        </div>
-        <button onclick="createTask()">إرسال المهمة</button>
-        <p id="taskFeedback"></p>
+    <div id="blocksContainer">
+        <div id="block1" class="block"><h4>البلوك الأول</h4></div>
+        <div id="block2" class="block"><h4>البلوك الثاني</h4></div>
+        <div id="block3" class="block"><h4>البلوك الثالث</h4></div>
+        <div id="block4" class="block"><h4>البلوك الرابع</h4></div>
     </div>
-
-    <h2>المهام المعروضة</h2>
-    <div id="tasksContainer"></div>
 </div>
 
-<div class="container image-container">
-    <img src="photo/task-image.jpg" alt="صورة توضيحية للمهمة">
+<div id="taskFormSection" class="form-section" style="display:none;">
+    <h2>إنشاء مهمة جديدة</h2>
+    <label for="taskCreator">اسم المنشئ:</label>
+    <input type="text" id="taskCreator" required>
+    <label for="taskDescription">وصف المهمة:</label>
+    <textarea id="taskDescription" required></textarea>
+    <label for="groupPassword">الرقم السري للمجموعة:</label>
+    <input type="password" id="groupPassword" placeholder="أدخل الرقم السري" required>
+    <button onclick="createTask()">إرسال المهمة</button>
+    <p id="taskFeedback"></p>
 </div>
+
+<h2>المهام المعروضة</h2>
+<div id="tasksContainer"></div>
 
 <script>
     let currentGroupId = null;
@@ -61,6 +64,7 @@
     function createGroup() {
         const groupName = document.getElementById('groupName').value.trim();
         const groupPassword = document.getElementById('groupPassworda').value.trim();
+        const groupBlock = document.getElementById('groupBlock').value;
 
         if (!groupName || !groupPassword) {
             alert('يرجى إدخال اسم المجموعة والرقم السري');
@@ -73,13 +77,14 @@
             body: JSON.stringify({
                 fields: {
                     groupName: { stringValue: groupName },
-                    password: { stringValue: groupPassword }
+                    password: { stringValue: groupPassword },
+                    block: { integerValue: parseInt(groupBlock) }
                 }
             })
         })
         .then(response => response.json())
         .then(data => {
-            addGroupToUI(groupName);
+            addGroupToUI(groupName, groupBlock);
             document.getElementById('groupName').value = ''; 
             document.getElementById('groupPassworda').value = ''; 
         })
@@ -90,67 +95,71 @@
         fetch('https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks')
             .then(response => response.json())
             .then(data => {
-                const groupsContainer = document.getElementById('groupsContainer');
-                groupsContainer.innerHTML = '';
                 if (data.documents) {
                     data.documents.forEach(group => {
-                        addGroupToUI(group.fields.groupName.stringValue);
+                        addGroupToUI(group.fields.groupName.stringValue, group.fields.block ? group.fields.block.integerValue : 1);
                     });
                 }
             })
             .catch(error => console.error('Error:', error));
     }
 
-    function addGroupToUI(groupName) {
-        const groupsContainer = document.getElementById('groupsContainer');
+    function addGroupToUI(groupName, block) {
+        const blockContainer = document.getElementById(`block${block}`);
         const groupButton = document.createElement('button');
         groupButton.textContent = groupName;
         groupButton.onclick = () => loadTasks(groupName);
-        groupsContainer.appendChild(groupButton);
+        blockContainer.appendChild(groupButton);
     }
 
     function loadTasks(groupName) {
-        currentGroupId = groupName;
-        document.getElementById('taskFormSection').style.display = 'block';
+        const enteredPassword = prompt(`يرجى إدخال الرقم السري للمجموعة "${groupName}"`);
 
-        fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${groupName}/tasks`)
+        if (!enteredPassword) {
+            alert("يرجى إدخال الرقم السري للمتابعة.");
+            return;
+        }
+
+        fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${groupName}`)
             .then(response => response.json())
             .then(data => {
-                const tasks = data.documents || [];
-                displayTasks(tasks);
+                if (!data.fields || !data.fields.password || data.fields.password.stringValue !== enteredPassword) {
+                    alert('الرقم السري غير صحيح. حاول مرة أخرى.');
+                    return;
+                }
+
+                currentGroupId = groupName;
+                document.getElementById('taskFormSection').style.display = 'block';
+                fetchTasks(groupName);
             })
             .catch(error => console.error('Error:', error));
     }
 
-    function displayTasks(tasks) {
-        const tasksContainer = document.getElementById('tasksContainer');
-        tasksContainer.innerHTML = '';
+    function fetchTasks(groupName) {
+        fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${groupName}/tasks`)
+            .then(response => response.json())
+            .then(data => {
+                const tasksContainer = document.getElementById('tasksContainer');
+                tasksContainer.innerHTML = "";
 
-        if (tasks.length === 0) {
-            tasksContainer.innerHTML = 'لا توجد مهام في هذه المجموعة.';
-            return;
-        }
-
-        tasks.forEach(task => {
-            const taskData = task.fields;
-            const timestamp = taskData.timestamp.stringValue;
-            const taskElement = document.createElement('div');
-            taskElement.classList.add('task');
-            taskElement.innerHTML = `
-                <strong>${taskData.creator.stringValue}</strong>: ${taskData.description.stringValue}<br>
-                <small>تم الإنشاء في: ${timestamp}</small><br>
-                <input type="password" id="deletePass${timestamp}" placeholder="أدخل الرقم السري للحذف">
-                <button onclick="deleteTask('${task.name}', '${timestamp}')">حذف</button>
-            `;
-            tasksContainer.appendChild(taskElement);
-        });
+                if (data.documents && Array.isArray(data.documents)) {
+                    data.documents.forEach(task => {
+                        const taskElement = document.createElement('div');
+                        taskElement.classList.add('task');
+                        taskElement.innerHTML = `<strong>${task.fields.creator?.stringValue || 'مجهول'}:</strong> ${task.fields.description?.stringValue || 'لا يوجد وصف'}`;
+                        tasksContainer.appendChild(taskElement);
+                    });
+                } else {
+                    tasksContainer.innerHTML = "<p>لا توجد مهام متاحة.</p>";
+                }
+            })
+            .catch(error => console.error('Error:', error));
     }
 
     function createTask() {
         const taskCreator = document.getElementById('taskCreator').value.trim();
         const taskDescription = document.getElementById('taskDescription').value.trim();
         const enteredPassword = document.getElementById('groupPassword').value.trim();
-        const timestamp = new Date().toISOString();
 
         fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}`)
         .then(response => response.json())
@@ -166,38 +175,12 @@
                 body: JSON.stringify({
                     fields: {
                         creator: { stringValue: taskCreator },
-                        description: { stringValue: taskDescription },
-                        timestamp: { stringValue: timestamp }
+                        description: { stringValue: taskDescription }
                     }
                 })
             });
         })
-        .then(response => response ? response.json() : null)
-        .then(data => {
-            if (data) {
-                document.getElementById('taskFeedback').textContent = "تم إرسال المهمة بنجاح!";
-                document.getElementById('groupPassword').value = "";
-                loadTasks(currentGroupId);
-            }
-        })
         .catch(error => console.error('Error:', error));
-    }
-
-    function deleteTask(taskPath, timestamp) {
-        const password = document.getElementById(`deletePass${timestamp}`).value;
-
-        if (password === '01001') {
-            fetch(`https://firestore.googleapis.com/v1/${taskPath}`, {
-                method: 'DELETE'
-            })
-            .then(() => {
-                alert('تم حذف المهمة بنجاح!');
-                loadTasks(currentGroupId);
-            })
-            .catch(error => console.error('Error:', error));
-        } else {
-            alert('الرقم السري غير صحيح!');
-        }
     }
 </script>
 
