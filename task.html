@@ -171,31 +171,42 @@
 
 
     function createTask() {
-        const taskCreator = document.getElementById('taskCreator').value.trim();
-        const taskDescription = document.getElementById('taskDescription').value.trim();
-        const enteredPassword = document.getElementById('groupPassword').value.trim();
+    const taskCreator = document.getElementById('taskCreator').value.trim();
+    const taskDescription = document.getElementById('taskDescription').value.trim();
+    const enteredPassword = document.getElementById('groupPassword').value.trim();
 
-        fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (!data.fields || !data.fields.password || data.fields.password.stringValue !== enteredPassword) {
-                alert('الرقم السري غير صحيح.');
-                return;
-            }
+    fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (!data.fields || !data.fields.password || data.fields.password.stringValue !== enteredPassword) {
+            alert('الرقم السري غير صحيح.');
+            return;
+        }
 
-            return fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    fields: {
-                        creator: { stringValue: taskCreator },
-                        description: { stringValue: taskDescription }
-                    }
-                })
-            });
-        })
-        .catch(error => console.error('Error:', error));
-    }
+        return fetch(`https://firestore.googleapis.com/v1/projects/chat-22b5f/databases/(default)/documents/Tasks/${currentGroupId}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fields: {
+                    creator: { stringValue: taskCreator },
+                    description: { stringValue: taskDescription }
+                }
+            })
+        });
+    })
+    .then(response => {
+        if (response && response.ok) {
+            alert('تم إنشاء المهمة بنجاح!');
+        } else {
+            alert('حدث خطأ أثناء إنشاء المهمة.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء إنشاء المهمة.');
+    });
+}
+
     function deleteTask(taskPath, timestamp) {
     const password = document.getElementById(`deletePass${timestamp}`).value;
 
